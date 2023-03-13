@@ -1,3 +1,0 @@
-﻿  Source.cpp
-D:\ОАиП\Libs\3сем\С++\FIles\Header.h(191): warning C4715: BiList<char>::Peek: значение возвращается не при всех путях выполнения
-  FIles.vcxproj -> D:\ОАиП\Libs\3сем\С++\FIles\x64\Debug\FIles.exe

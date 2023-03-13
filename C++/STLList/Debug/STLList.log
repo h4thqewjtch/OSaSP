@@ -1,4 +1,0 @@
-﻿  Source.cpp
-D:\ОАиП\Libs\3сем\С++\STLList\Header.h(141,4): warning C4101: info: неиспользованная локальная переменная
-D:\ОАиП\Libs\3сем\С++\STLList\Source.cpp(117): message : выполняется компиляция ссылки на экземпляр шаблон функции "void Erase<int>(std::list<int,std::allocator<int>> &)"
-  STLList.vcxproj -> D:\ОАиП\Libs\3сем\С++\STLList\Debug\STLList.exe
