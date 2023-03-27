@@ -119,17 +119,19 @@ void DirWalk(char *dirName, struct opt option)
         }
     }
     closedir(dir);
-    Sort(walker, size);
+    if (option.sort == 's')
+        Sort(walker, size);
     for (int i = 0; i < size; i++)
     {
         stat(walker[i], &info);
-        if ((info.st_mode & __S_IFMT)== __S_IFDIR)
+        if ((info.st_mode & __S_IFMT) == __S_IFDIR)
         {
-            if(option.dir == 'd')
+            if (option.dir == 'd')
                 puts(walker[i]);
             DirWalk(walker[i], option);
         }
-        else puts(walker[i]);
+        else
+            puts(walker[i]);
     }
     for (int i = 0; i < size; i++)
         free(walker[i]);
@@ -141,14 +143,11 @@ void Sort(char **mas, int size)
     char *buf = NULL;
     buf = (char *)malloc(257 * sizeof(char));
     for (int i = 0; i < size - 1; i++)
-        for (int j = 1+i; j < size; j++)
-        {
-
+        for (int j = 1 + i; j < size; j++)
             if (strcmp(mas[j], mas[j - 1]) < 0)
             {
                 strcpy(buf, mas[j]);
                 strcpy(mas[j], mas[j - 1]);
                 strcpy(mas[j - 1], buf);
             }
-        }
 }
