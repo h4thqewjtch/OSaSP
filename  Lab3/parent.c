@@ -21,7 +21,7 @@ int main(int argc, char *argv[], char *envp[])
         puts("  k:            delete all child processes;");
         puts("  s:            disable all statistics;");
         puts("  g:            able all statistics;");
-        puts("  p<num>:       able statistic for child process C_<num>;");
+        puts("  p:            able statistic for child process C_<num>;");
         puts("  q:            delete all child processes and exit of parent process.");
         printf("Your choice: ");
         char var = 0;
@@ -42,7 +42,7 @@ int main(int argc, char *argv[], char *envp[])
             if (*pid_p == 0)
             {
                 printf("Child process created. Please wait...\n");
-                char *args[] = {argv[1], argv[2], (char *)0};
+                char *args[] = {"/home/h4thqewjtch/Libs/Lab2/child", (char *)0};
                 if (execve(argv[1], args, (void *)0) == -1)
                 {
                     printf("Error occured. Error code - %d\n", errno);
@@ -114,6 +114,16 @@ int main(int argc, char *argv[], char *envp[])
             break;
         case 'p':
             printf("Enter <num>(0 - %d) to able statistic for C_<num>\n", size);
+            int number = -1;
+            rewind(stdin);
+            scanf("%d", &number);
+            system("clear");
+            if (number > -1 && number <= size)
+            {
+                printf("Able statistic for child process C_%d\n", number);
+            }
+            else
+                puts("Unknown option!\n");
             break;
         case 'q':
             system("clear");
