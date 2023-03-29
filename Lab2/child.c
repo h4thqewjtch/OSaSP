@@ -51,7 +51,7 @@ int main(int argc, char *argv[], char *envp[])
         else if (!strcmp(var, "LC_COLLATE"))
             fprintf(stdout, "   LC_COLLATE:             %s\n", getenv("LC_COLLATE"));
         else if (!strcmp(var, "PATH"))
-            fprintf(stdout, "   PATH:                   %s\n", getenv("PATH"));
+            fprintf(stdout, "   PATH:                   %s\n\n", getenv("PATH"));
         else
             fprintf(stdout, "   Unknown Variable!\n");
     }
