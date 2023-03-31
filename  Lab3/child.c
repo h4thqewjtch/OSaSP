@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sys/wait.h>
@@ -27,41 +28,60 @@ struct pares
 } p = {0, 0, 0, 0};
 
 int count = 0;
-int able = 0;
+bool able = false;
 
-void timer_handler()
+void atexit_handler();
+void init_sigaction();
+void set_timer_handler();
+void init_timer(struct itimerval *);
+
+int main(int argc, char *argv[], char *envp[])
 {
-    count++;
-    if (memory.a == 0 && memory.b == 0)
-        p.p_00++;
-    else if (memory.a == 0 && memory.b == 1)
-        p.p_01++;
-    else if (memory.a == 1 && memory.b == 0)
-        p.p_10++;
-    else if (memory.a == 1 && memory.b == 1)
-        p.p_11++;
+    struct itimerval timer;
+    printf("Start child\n");
+    atexit(atexit_handler);
+    init_sigaction();
+    set_timer_handler();
+    init_timer(&timer);
+    while (1)
+    {
+        memory.a = 0;
+        memory.b = 0;
+        memory.a = 1;
+        memory.b = 1;
+        if (count == 100)
+        {
+            if (able)
+            {
+                char buffer[256];
+                char *str = (char *)&buffer;
+                sprintf(buffer,
+                        "parent pid = %d\n%s pid  = %d\nstatistic: [ 00 - '%2d' ]\n           [ 01 - '%2d' ]\n           [ 10 - '%2d' ]\n           [ 11 - '%2d' ]\n\n",
+                        getppid(), argv[0], getpid(), p.p_00, p.p_01, p.p_10, p.p_11);
+                while (*str)
+                    fputc(*str++, stdout);
+            }
+            count = 0;
+            p.p_00 = 0;
+            p.p_01 = 0;
+            p.p_10 = 0;
+            p.p_11 = 0;
+        }
+    }
+    exit(0);
 }
 
-void ask_to_print()
+void atexit_handler()
 {
-    kill(getppid(), SIGUSR1);
-}
-
-void init_timer(struct itimerval *timer)
-{
-    timer->it_value.tv_sec = 0;
-    timer->it_value.tv_usec = 10000;
-    timer->it_interval.tv_sec = 0;
-    timer->it_interval.tv_usec = 10000;
-    setitimer(ITIMER_REAL, timer, NULL);
+    printf("The child process %d finished the output!\n", getpid());
 }
 
 void set_printallow(int signal)
 {
     if (signal == SIGUSR1)
-        able = 1;
+        able = true;
     else
-        able = 0;
+        able = false;
 }
 
 void init_sigaction()
@@ -78,6 +98,23 @@ void init_sigaction()
     sigaction(SIGUSR1, &forbid_print, NULL);
 }
 
+void timer_handler()
+{
+    count++;
+    if (memory.a)
+    {
+        if(memory.b)
+            p.p_11++;
+        else p.p_10++;
+    }
+    else 
+    {
+        if(memory.b)
+            p.p_01++;
+        else p.p_00++;
+    }
+}
+
 void set_timer_handler()
 {
     struct sigaction timer_sig;
@@ -86,50 +123,11 @@ void set_timer_handler()
     sigaction(SIGALRM, &timer_sig, NULL);
 }
 
-void atexit_handler()
+void init_timer(struct itimerval *timer)
 {
-    printf("child %d is processed.", getpid());
-}
-
-void init_atexit()
-{
-    atexit(atexit_handler);
-}
-
-int main(int argc, char *argv[], char *envp[])
-{
-    struct itimerval timer;
-    printf("Start child\n");
-    init_atexit();
-    init_sigaction();
-    set_timer_handler();
-    init_timer(&timer);
-    ask_to_print();
-    while (1)
-    {
-        memory.a = 0;
-        memory.b = 0;
-        memory.a = 1;
-        memory.b = 1;
-        if (count == 100)
-        {
-            if (able)
-            {
-                char buffer[256];
-                char *str = (char*)&buffer;
-                sprintf(buffer, "parent pid = %d\t%s pid = %d\tstatistic - [ 00 - '%2d', 01 - '%2d', 10 - '%2d', 11 - '%2d' ]\n",
-                        getppid(), argv[0], getpid(), p.p_00, p.p_01, p.p_10, p.p_11);
-                while (*str)
-                {
-                    fputc(*str++, stdout);
-                }
-            }
-            count = 0;
-            p.p_00 = 0;
-            p.p_01 = 0;
-            p.p_10 = 0;
-            p.p_11 = 0;
-        }
-    }
-    return 0;
+    timer->it_value.tv_sec = 0;
+    timer->it_value.tv_usec = 10000;
+    timer->it_interval.tv_sec = 0;
+    timer->it_interval.tv_usec = 10000;
+    setitimer(ITIMER_REAL, timer, NULL);
 }
