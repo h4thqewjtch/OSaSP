@@ -1,13 +1,10 @@
 #include "header.h"
 
 #include <dirent.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-// #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
 
 void dirWalk(char *dirName, struct comm commands)
 {
@@ -33,6 +30,8 @@ void dirWalk(char *dirName, struct comm commands)
         if (data->d_type == 8 && commands.file)
         {
             snprintf(path, sizeof(path), "%s/%s", dirName, data->d_name);
+            if (size >= 1024)
+                break;
             walker[size] = (char *)malloc(257 * sizeof(char));
             strcpy(walker[size], path);
             size++;
@@ -40,6 +39,8 @@ void dirWalk(char *dirName, struct comm commands)
         if (data->d_type == 10 && commands.link)
         {
             snprintf(path, sizeof(path), "%s/%s", dirName, data->d_name);
+            if (size >= 1024)
+                break;
             walker[size] = (char *)malloc(257 * sizeof(char));
             strcpy(walker[size], path);
             size++;
@@ -47,6 +48,8 @@ void dirWalk(char *dirName, struct comm commands)
         if (data->d_type == 4)
         {
             snprintf(path, sizeof(path), "%s/%s", dirName, data->d_name);
+            if (size >= 1024)
+                break;
             walker[size] = (char *)malloc(257 * sizeof(char));
             strcpy(walker[size], path);
             size++;
