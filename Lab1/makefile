@@ -1,4 +1,4 @@
 compile:
-	gcc dirwalk.c -o dirwalk
+	gcc dirwalk.c source.c -o dirwalk
 clean:
-	rm dirwalk
+	rm dirwalk source
