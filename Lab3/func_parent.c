@@ -36,46 +36,66 @@ void exec_choice(char var)
     {
         system("clear");
         printf("Delete all child processes\n");
-        kill_all();
+        for (int i = 0; i < max_ind; i++)
+        {
+            send_signal(pids[i], SIGKILL);
+            pids[i] = 0;
+        }
+        max_ind = 0;
         break;
     }
     case 'l':
     {
         system("clear");
+        for (int i = 0; i < max_ind; i++)
+            send_signal(pids[i], SIGSTOP);
         printf("The list of processes:\n");
         list_processes();
+        rewind(stdin);
+        getchar();
+        rewind(stdin);
+        for (int i = 0; i < max_ind; i++)
+            send_signal(pids[i], SIGCONT);
         break;
     }
     case 's':
     {
         system("clear");
+        for (int i = 0; i < max_ind; i++)
+            send_signal(pids[i], SIGSTOP);
         printf("Enter:\n");
-        printf("              [-1]:          disable all statistic\n");
+        printf("            [%2d]:          disable all statistic\n", max_ind);
         printf("    <num>(0 - %2d):          disable statistic for C_<num>\n", max_ind - 1);
-        int number = -1;
+        int number = 100;
         rewind(stdin);
         scanf("%d", &number);
         getchar();
-        if (number > -1 && number < max_ind)
+        if (number>-1 && number < max_ind)
         {
             printf("Disable statistic for child process C_%d\n", number);
             send_signal(pids[number], SIGUSR2);
         }
-        else if (number == -1)
+        else if (number == max_ind)
         {
             printf("Disable all statistics\n");
             for (int i = 0; i < max_ind; i++)
                 send_signal(pids[i], SIGUSR2);
         }
         else
+        {
             printf("Unknown option!\n");
+        }
+        for (int i = 0; i < max_ind; i++)
+            send_signal(pids[i], SIGCONT);
         break;
     }
     case 'g':
     {
         system("clear");
+        for (int i = 0; i < max_ind; i++)
+            send_signal(pids[i], SIGSTOP);
         printf("Enter:\n");
-        printf("              [-1]:          able all statistic\n");
+        printf("            [%2d]:          able all statistic\n", max_ind);
         printf("    <num>(0 - %2d):          able statistic for C_<num>\n", max_ind - 1);
         int number;
         rewind(stdin);
@@ -86,7 +106,7 @@ void exec_choice(char var)
             printf("Able statistic for child process C_%d\n", number);
             send_signal(pids[number], SIGUSR1);
         }
-        else if (number == -1)
+        else if (number == max_ind)
         {
             printf("Able all statistics\n");
             for (int i = 0; i < max_ind; i++)
@@ -94,11 +114,15 @@ void exec_choice(char var)
         }
         else
             printf("Unknown option!\n");
+        for (int i = 0; i < max_ind; i++)
+            send_signal(pids[i], SIGCONT);
         break;
     }
     case 'p':
     {
         system("clear");
+        for (int i = 0; i < max_ind; i++)
+            send_signal(pids[i], SIGSTOP);
         printf("Enter:\n");
         printf("    <num>(0 - %d):          able statistic for C_<num>\n", max_ind - 1);
         int number;
@@ -115,6 +139,8 @@ void exec_choice(char var)
         }
         else
             printf("Unknown option!\n");
+        for (int i = 0; i < max_ind; i++)
+            send_signal(pids[i], SIGCONT);
         break;
     }
     case 'q':
@@ -160,16 +186,6 @@ void kill_process()
 {
     max_ind--;
     send_signal(pids[max_ind], SIGKILL);
-}
-
-void kill_all()
-{
-    for (int i = 0; i < max_ind; i++)
-    {
-        send_signal(pids[i], SIGKILL);
-        pids[i] = 0;
-    }
-    max_ind = 0;
 }
 
 void list_processes()

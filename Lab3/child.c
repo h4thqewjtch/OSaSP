@@ -5,8 +5,6 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-//struct pares pr = {0, 0, 0, 0};
-
 int main(int argc, char *argv[], char *envp[])
 {
     struct itimerval timer;
