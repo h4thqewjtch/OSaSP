@@ -9,12 +9,14 @@ pid_t consumer_pids[128];
 int prod_max = 0;
 int cons_max = 0;
 
+int choice = 0;
+
 int sems_init();
 int shar_mem_init();
 void init_sig();
 void atexit_handler();
 void exit_unlink(const char *);
-void exec_choice(char *);
+void exec_choice(int);
 int create_producer();
 void producer();
 struct mess mess_init(struct mess);
@@ -30,20 +32,65 @@ int main()
     init_sig();
     while (1)
     {
-        printf("  [+]:            create a message queue;\n");
-        printf("  [p]:            create a producer;\n");
-        printf("  [c]:            create a consumer;\n");
-        printf("  [l]:            show the list of processes;\n");
-        printf("  [k]<p/c>:       delete the last producer/consumer process;\n");
-        printf("  [q]:            delete all child processes and exit of parent process.\n");
-        printf("Your choice:\n");
-        char choice[3] = {0, 0, 0};
+        printf("  [1]:            create a message queue;\n");
+        printf("  [2]:            create a producer;\n");
+        printf(" [-2]:            kill the last producer process;\n");
+        printf("  [3]:            create a consumer;\n");
+        printf(" [-3]:            kill the last consumer process;\n");
+        printf("  [4]:            show the list of processes;\n");
+        printf("If you want to quit the program, choose another variant.\n");
+        printf("Your choice:        ");
         rewind(stdin);
-        scanf("%c", &choice[0]);
-        rewind(stdin);
-        scanf("%c", &choice[1]);
-        exec_choice(choice);
+        scanf("%d", &choice);
+        if (choice == 1)
+        {
+            printf("Create a message queue\n");
+            init_queue();
+            mess_queue->all_amount = 0;
+        }
+        else if (choice == 2)
+        {
+            printf("Create a producer\n");
+            create_producer();
+        }
+        else if (choice == 3)
+        {
+            printf("Create a consumer\n");
+            create_consumer();
+        }
+        else if (choice == 4)
+        {
+            for (int i = 0; i < prod_max; i++)
+                send_signal(producer_pids[i], SIGSTOP);
+            for (int i = 0; i < cons_max; i++)
+                send_signal(consumer_pids[i], SIGSTOP);
+            printf("The list of processes:\n");
+            list_processes();
+            for (int i = 0; i < prod_max; i++)
+                send_signal(producer_pids[i], SIGCONT);
+            for (int i = 0; i < cons_max; i++)
+                send_signal(consumer_pids[i], SIGCONT);
+        }
+        else if (choice == -2)
+        {
+            prod_max--;
+            printf("Kill the producer process №%d\n", prod_max);
+            send_signal(producer_pids[prod_max], SIGTERM);
+        }
+        else if (choice == -3)
+        {
+            cons_max--;
+            printf("Kill the consumer process №%d\n", cons_max);
+            send_signal(consumer_pids[cons_max], SIGTERM);
+        }
+        else if (choice == 0)
+        {
+            printf("\nQuit\n\n");
+            break;
+        }
+        choice = 0;
     }
+    atexit_handler();
     exit(0);
 }
 
@@ -69,7 +116,7 @@ int sems_init() // инициализация семафоров
 
     push_sem = sem_open("push_sem",
                         (O_RDWR | O_CREAT | O_TRUNC),
-                        (S_IRUSR | S_IWUSR), 64);
+                        (S_IRUSR | S_IWUSR), 16);
 
     if (push_sem == SEM_FAILED)
     {
@@ -95,7 +142,6 @@ int shar_mem_init() // инициализация общей памяти
     int fd = shm_open(SHM_NAME,
                       (O_CREAT | O_RDWR | O_TRUNC),
                       (S_IRUSR | S_IWUSR));
-
     if (fd < 0)
     {
         ERROR_HANDLER("shm_open", SHM_NAME);
@@ -125,68 +171,8 @@ int shar_mem_init() // инициализация общей памяти
     return 0;
 }
 
-void exec_choice(char *var)
+void exec_choice(int var)
 {
-    switch (var[0])
-    {
-    case '+':
-    {
-        init_queue();
-        mess_queue->all_amount = 0;
-        break;
-    }
-    case 'p':
-    {
-        create_producer();
-        break;
-    }
-    case 'c':
-    {
-        create_consumer();
-        break;
-    }
-    case 'l':
-    {
-        for (int i = 0; i < prod_max; i++)
-            send_signal(producer_pids[i], SIGSTOP);
-        for (int i = 0; i < cons_max; i++)
-            send_signal(consumer_pids[i], SIGSTOP);
-        printf("The list of processes:\n");
-        list_processes();
-        for (int i = 0; i < prod_max; i++)
-            send_signal(producer_pids[i], SIGCONT);
-        for (int i = 0; i < cons_max; i++)
-            send_signal(consumer_pids[i], SIGCONT);
-        break;
-    }
-    case 'k':
-    {
-        if (var[1] == 'p')
-        {
-            prod_max--;
-            send_signal(producer_pids[prod_max], SIGTERM);
-        }
-        else if (var[1] == 'c')
-        {
-            cons_max--;
-            send_signal(consumer_pids[cons_max], SIGTERM);
-        }
-        else
-            printf("Unknown option!\n");
-        break;
-    }
-    case 'q':
-    {
-        atexit_handler();
-        exit(0);
-        break;
-    }
-    default:
-    {
-        printf("Unknown option!\n");
-        break;
-    }
-    }
 }
 
 int create_producer()
@@ -233,7 +219,6 @@ void producer()
             printf("allow exit producer - %d.\n\n", getpid());
             exit(1);
         }
-
         sleep(5);
     }
     exit(0);
@@ -296,14 +281,14 @@ void consumer()
             printf("allow exit consumer - %d.\n\n", getpid());
             exit(1);
         }
-
         sleep(5);
     }
+    exit(0);
 }
 
 void list_processes()
 {
-    printf("    Parent process pid:         %d\n", (int)getppid());
+    printf("    Parent process pid:            %d\n", getppid());
     printf("\n");
     for (int i = 0; i < prod_max; i++)
         printf("    Producer process №%2d pid:      %d\n", i, producer_pids[i]);

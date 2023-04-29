@@ -61,17 +61,16 @@ void init_queue()
 
 void push(struct mess msg)
 {
-    if (mess_queue->all_amount > 16)
+    if (mess_queue->all_amount >= 16)
     {
-        ERROR_HANDLER("push", nameof(mess_queue->all_amount));
-        exit(1);
+        printf("\nMessage queue is full!\n\n");
+        return;
     }
 
     if (mess_queue->pushed == 16)
     {
         init_queue();
     }
-
 
     mess_queue->pushed++;
     mess_queue->all_amount++;
@@ -81,12 +80,18 @@ void push(struct mess msg)
 
 struct mess pop()
 {
-    if (mess_queue->all_amount < 0)
-    {
-        ERROR_HANDLER("pop", nameof(mess_queue->all_amount));
-        exit(1);
-    }
     struct mess msg = mess_queue->info[mess_queue->head++];
+    if (mess_queue->all_amount <= 0)
+    {
+        printf("\nMessage queue is empty!\n\n");
+        return msg;
+    }
+
+    if (mess_queue->poped == 16)
+    {
+        init_queue();
+    }
+
     mess_queue->poped++;
     mess_queue->all_amount--;
     msg.type = 'c';
