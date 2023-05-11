@@ -17,12 +17,14 @@
 #define SA_RESTART 0x10000000
 
 #define nameof(name) #name
-#define ERROR_HANDLER(func, name)                         \
+#define ERROR_HANDLER(func, name)   
+do                      \
     {                                                     \
         perror(func);                                     \
         fprintf(stderr, "Error code: %d\n", errno);       \
         fprintf(stderr, "Error environment: %s\n", name); \
-    }
+    } \
+while(0)
 
 sem_t *mutex;
 sem_t *push_sem;

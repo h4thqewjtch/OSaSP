@@ -9,15 +9,21 @@ int consMax = 0;
 bool allowProducerExit = 0;
 bool allowConsumerExit = 0;
 
+pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t prodCond = PTHREAD_COND_INITIALIZER;
+pthread_cond_t consCond = PTHREAD_COND_INITIALIZER;
+
+int prodCondMax = 0;
+int consCondMax = 0;
+
 struct mess;
 struct Queue *messQueue;
+int queueSize = 16;
 
 int choice = 0;
 void *threadStatus;
 
-int sems_init();
 void atexit_handler();
-void exit_unlink(const char *);
 int create_producer();
 void producer();
 struct mess mess_init(struct mess);
@@ -29,14 +35,11 @@ void kill_thread(int);
 int main()
 {
     messQueue = (struct Queue *)malloc(sizeof(struct Queue));
-    sems_init();
     init_queue();
     messQueue->count = 0;
     while (1)
     {
         printf("  [1] :             show the list of threads;\n");
-        printf("  [11]:             increase the message queue;\n");
-        printf("  [10]:             decrease the message queue;\n");
         printf("  [2] :             create a producer;\n");
         printf("  [-2]:             kill the last producer thread;\n");
         printf("  [3] :             create a consumer;\n");
@@ -49,26 +52,6 @@ int main()
         {
             printf("\nShow the list of threads\n\n");
             list_threads();
-        }
-        else if (choice == 11)
-        {
-            printf("\nIncrease the message queue\n");
-            printf("Enter a value to increase the message queue: ");
-            int value = 0;
-            rewind(stdin);
-            scanf("%d", &value);
-            printf("\n");
-            increase_queue(value);
-        }
-        else if (choice == 10)
-        {
-            printf("\nDecrease the message queue\n");
-            printf("Enter a value to decrease the message queue: ");
-            int value = 0;
-            rewind(stdin);
-            scanf("%d", &value);
-            printf("\n");
-            decrease_queue(value);
         }
         else if (choice == 2)
         {
@@ -92,43 +75,20 @@ int main()
         choice = 0;
     }
     atexit_handler();
-    free(messQueue->info);
+    if (pthread_cond_destroy(&prodCond) != 0)
+    {
+        ERROR_HANDLER("pthread_cond_destroy", nameof(prodCond));
+    }
+    if (pthread_cond_destroy(&consCond) != 0)
+    {
+        ERROR_HANDLER("pthread_cond_destroy", nameof(consCond));
+    }
+    if (pthread_mutex_destroy(&mut) != 0)
+    {
+        ERROR_HANDLER("pthread_mutex_destroy", nameof(mut));
+    }
     free(messQueue);
     exit(0);
-}
-
-int sems_init() // инициализация семафоров
-{
-    mutex = sem_open(MUTEX,
-                     (O_RDWR | O_CREAT | O_TRUNC),
-                     (S_IRUSR | S_IWUSR), 1);
-
-    if (mutex == SEM_FAILED)
-    {
-        ERROR_HANDLER("sem_open", nameof(mutex));
-        return -1;
-    }
-
-    pushSem = sem_open("pushSem",
-                       (O_RDWR | O_CREAT | O_TRUNC),
-                       (S_IRUSR | S_IWUSR), 256);
-
-    if (pushSem == SEM_FAILED)
-    {
-        ERROR_HANDLER("sem_open", nameof(pushSem));
-        return -1;
-    }
-
-    popSem = sem_open(POPSEM,
-                      (O_RDWR | O_CREAT | O_TRUNC),
-                      (S_IRUSR | S_IWUSR), 0);
-
-    if (popSem == SEM_FAILED)
-    {
-        ERROR_HANDLER("sem_open", nameof(popSem));
-        return -1;
-    }
-    return 0;
 }
 
 int create_producer()
@@ -151,20 +111,41 @@ void producer()
     }
     while (1)
     {
+        if (messQueue->count < 16)
+        {
+            if (pthread_mutex_lock(&mut) != 0)
+            {
+                ERROR_HANDLER("pthread_mutex_lock", nameof(mut));
+            }
+            while (messQueue->count >= 16)
+            {
+                printf("\nMessage queue is full!\n\n");
+                if (pthread_cond_wait(&prodCond, &mut) != 0)
+                {
+                    ERROR_HANDLER("pthread_cond_wait", nameof(prodCond));
+                }
+            }
 
-        sem_wait(pushSem);
-        sem_wait(mutex);
+            push(mess_init(msg));
+            printf("tid: %5d ", (int)pthread_self());
+            printf("type: %c hash:%8d size: %3d data: %4d pushed:%2d ",
+                   (messQueue->info[messQueue->tail - 1]).type, (messQueue->info[messQueue->tail - 1]).hash,
+                   (messQueue->info[messQueue->tail - 1]).size, (messQueue->info[messQueue->tail - 1]).data, messQueue->pushed);
+            printf("in line:%2d\n", messQueue->count);
 
-        push(mess_init(msg));
-        printf("tid: %5d ", (int)pthread_self());
-        printf("type: %c hash:%8d size: %3d data: %4d pushed:%2d ",
-               (messQueue->info[messQueue->tail - 1]).type, (messQueue->info[messQueue->tail - 1]).hash,
-               (messQueue->info[messQueue->tail - 1]).size, (messQueue->info[messQueue->tail - 1]).data, messQueue->pushed);
-        printf("in line:%2d\n", messQueue->count);
+            if (messQueue->count > 0)
+            {
+                if (pthread_cond_broadcast(&consCond) != 0)
+                {
+                    ERROR_HANDLER("pthread_cond_broadcast", nameof(consCond));
+                }
+            }
 
-        sem_post(mutex);
-        sem_post(popSem);
-
+            if (pthread_mutex_unlock(&mut) != 0)
+            {
+                ERROR_HANDLER("pthread_mutex_unlock", nameof(mut));
+            }
+        }
         if (allowProducerExit)
         {
             if (pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL) != 0)
@@ -221,19 +202,40 @@ void consumer()
     {
         if (messQueue->count)
         {
-            sem_wait(popSem);
-            sem_wait(mutex);
+            if (pthread_mutex_lock(&mut) != 0)
+            {
+                ERROR_HANDLER("pthread_mutex_lock", nameof(mut));
+            }
+            while (messQueue->count <= 0)
+            {
+                printf("\nMessage queue is empty!\n\n");
+                if (pthread_cond_wait(&consCond, &mut) != 0)
+                {
+                    ERROR_HANDLER("pthread_cond_wait", nameof(consCond));
+                }
+            }
 
             var = pop();
             printf("tid: %5d ", (int)pthread_self());
             printf("type: %c hash:%8d size: %3d data: %4d poped:%3d ", var.type, var.hash, var.size, var.data, messQueue->poped);
             printf("in line:%2d\n", messQueue->count);
 
-            sem_post(mutex);
-            sem_post(pushSem);
+            if (messQueue->count < queueSize)
+            {
+                if (pthread_cond_broadcast(&prodCond) != 0)
+                {
+                    ERROR_HANDLER("pthread_cond_signal", nameof(prodCond));
+                }
+            }
+
+            if (pthread_mutex_unlock(&mut) != 0)
+            {
+                ERROR_HANDLER("pthread_mutex_unlock", nameof(mut));
+            }
         }
         if (allowConsumerExit)
         {
+
             if (pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL) != 0)
             {
                 ERROR_HANDLER("pthread_setcancelstate", nameof(consumer));
@@ -257,7 +259,6 @@ void list_threads()
     {
         printf("    Consumer thread №%2d tid:      %d\n", i, (int)consTids[i]);
     }
-    printf("\n");
 }
 
 void kill_thread(int choice)
@@ -266,23 +267,24 @@ void kill_thread(int choice)
     {
         allowProducerExit = true;
         printf("\nKill the producer thread\n");
-        if (pthread_cancel(prodTids[--prodMax]) == -1)
+        if (pthread_cancel(prodTids[prodMax - 1]) == -1)
         {
-            ERROR_HANDLER("pthread_cancel", nameof(prodTids[prodMax]));
+            ERROR_HANDLER("pthread_cancel", nameof(prodTids[prodMax - 1]));
             exit(1);
         }
-        if (pthread_join(prodTids[prodMax], &threadStatus) == -1)
+        if (pthread_join(prodTids[prodMax - 1], &threadStatus) == -1)
         {
-            ERROR_HANDLER("pthread_join", nameof(prodTids[prodMax]));
+            ERROR_HANDLER("pthread_join", nameof(prodTids[prodMax - 1]));
             exit(1);
         }
         if (threadStatus == PTHREAD_CANCELED)
         {
-            printf("Producer №%d was canceled\n", prodMax);
+            printf("Producer №%d was canceled\n", prodMax - 1);
+            prodMax--;
         }
         else
         {
-            printf("Producer №%d wasn't canceled\n", prodMax);
+            printf("Producer №%d wasn't canceled\n", prodMax - 1);
         }
         allowProducerExit = false;
     }
@@ -290,24 +292,25 @@ void kill_thread(int choice)
     {
         allowConsumerExit = true;
         printf("\nKill the consumer thread\n");
-        if (pthread_cancel(consTids[--consMax]) == -1)
+        if (pthread_cancel(consTids[consMax - 1]) == -1)
         {
-            ERROR_HANDLER("pthread_cancel", nameof(consTids[consMax]));
+            ERROR_HANDLER("pthread_cancel", nameof(consTids[consMax - 1]));
             exit(1);
         }
         int status = 0;
-        if (pthread_join(consTids[consMax], &threadStatus) == -1)
+        if (pthread_join(consTids[consMax - 1], &threadStatus) == -1)
         {
-            ERROR_HANDLER("pthread_join", nameof(consTids[consMax]));
+            ERROR_HANDLER("pthread_join", nameof(consTids[consMax - 1]));
             exit(1);
         }
         if (threadStatus == PTHREAD_CANCELED)
         {
-            printf("Consumer №%d was canceled\n", consMax);
+            printf("Consumer №%d was canceled\n", consMax - 1);
+            consMax--;
         }
         else
         {
-            printf("Consumer №%d wasn't canceled\n", consMax);
+            printf("Consumer №%d wasn't canceled\n", consMax - 1);
         }
         allowConsumerExit = false;
     }
@@ -322,7 +325,6 @@ void atexit_handler()
     allowProducerExit = true;
     for (int i = 0; i < prodMax; i++)
     {
-
         if (pthread_cancel(prodTids[i]) == -1)
         {
             ERROR_HANDLER("pthread_cancel", nameof(prodTids[i]));
@@ -364,19 +366,5 @@ void atexit_handler()
         {
             printf("Consumer №%d wasn't canceled\n", i);
         }
-    }
-    exit_unlink(MUTEX);
-
-    exit_unlink(POPSEM);
-
-    exit_unlink(PUSHSEM);
-}
-
-void exit_unlink(const char *env) // удаление семафоров
-{
-    if (sem_unlink(env))
-    {
-        ERROR_HANDLER("sem_unlink", env);
-        exit(1);
     }
 }

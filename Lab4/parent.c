@@ -16,7 +16,6 @@ int shar_mem_init();
 void init_sig();
 void atexit_handler();
 void exit_unlink(const char *);
-void exec_choice(int);
 int create_producer();
 void producer();
 struct mess mess_init(struct mess);
@@ -30,35 +29,20 @@ int main()
     sems_init();
     shar_mem_init();
     init_sig();
+    init_queue();
+    mess_queue->all_amount = 0;
     while (1)
     {
-        printf("  [1]:            create a message queue;\n");
+        printf("  [1]:            show the list of processes;\n");
         printf("  [2]:            create a producer;\n");
         printf(" [-2]:            kill the last producer process;\n");
         printf("  [3]:            create a consumer;\n");
         printf(" [-3]:            kill the last consumer process;\n");
-        printf("  [4]:            show the list of processes;\n");
         printf("If you want to quit the program, choose another variant.\n");
         printf("Your choice:        ");
         rewind(stdin);
         scanf("%d", &choice);
         if (choice == 1)
-        {
-            printf("Create a message queue\n");
-            init_queue();
-            mess_queue->all_amount = 0;
-        }
-        else if (choice == 2)
-        {
-            printf("Create a producer\n");
-            create_producer();
-        }
-        else if (choice == 3)
-        {
-            printf("Create a consumer\n");
-            create_consumer();
-        }
-        else if (choice == 4)
         {
             for (int i = 0; i < prod_max; i++)
                 send_signal(producer_pids[i], SIGSTOP);
@@ -70,6 +54,16 @@ int main()
                 send_signal(producer_pids[i], SIGCONT);
             for (int i = 0; i < cons_max; i++)
                 send_signal(consumer_pids[i], SIGCONT);
+        }
+        else if (choice == 2)
+        {
+            printf("Create a producer\n");
+            create_producer();
+        }
+        else if (choice == 3)
+        {
+            printf("Create a consumer\n");
+            create_consumer();
         }
         else if (choice == -2)
         {
@@ -99,13 +93,13 @@ void init_sig()
     struct sigaction term_action;
     memset(&term_action, 0, sizeof(term_action));
     term_action.sa_handler = &term_handler;
-    sigaction(SIGKILL, &term_action, NULL);
+    sigaction(SIGTERM, &term_action, NULL);
 }
 
 int sems_init() // инициализация семафоров
 {
     mutex = sem_open(MUTEX,
-                     (O_RDWR | O_CREAT | O_TRUNC),
+                     (O_RDWR | O_CREAT),
                      (S_IRUSR | S_IWUSR), 1);
 
     if (mutex == SEM_FAILED)
@@ -115,7 +109,7 @@ int sems_init() // инициализация семафоров
     }
 
     push_sem = sem_open("push_sem",
-                        (O_RDWR | O_CREAT | O_TRUNC),
+                        (O_RDWR | O_CREAT),
                         (S_IRUSR | S_IWUSR), 16);
 
     if (push_sem == SEM_FAILED)
@@ -125,7 +119,7 @@ int sems_init() // инициализация семафоров
     }
 
     pop_sem = sem_open(POP_SEM,
-                       (O_RDWR | O_CREAT | O_TRUNC),
+                       (O_RDWR | O_CREAT),
                        (S_IRUSR | S_IWUSR), 0);
 
     if (pop_sem == SEM_FAILED)
@@ -169,10 +163,6 @@ int shar_mem_init() // инициализация общей памяти
     close(fd);
 
     return 0;
-}
-
-void exec_choice(int var)
-{
 }
 
 int create_producer()
@@ -219,7 +209,7 @@ void producer()
             printf("allow exit producer - %d.\n\n", getpid());
             exit(1);
         }
-        sleep(5);
+        sleep(1);
     }
     exit(0);
 }
@@ -281,7 +271,7 @@ void consumer()
             printf("allow exit consumer - %d.\n\n", getpid());
             exit(1);
         }
-        sleep(5);
+        sleep(1);
     }
     exit(0);
 }

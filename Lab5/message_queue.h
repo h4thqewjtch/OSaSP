@@ -50,6 +50,9 @@ extern struct Queue
 
 } *messQueue;
 
+extern bool allowProducerExit;
+extern bool allowConsumerExit;
+
 void init_queue()
 {
     messQueue->tail = messQueue->head = 0;
@@ -80,6 +83,7 @@ void push(struct mess msg)
 struct mess pop()
 {
     struct mess msg = messQueue->info[messQueue->head++];
+    msg.type = 'c';
     if (messQueue->count <= 0)
     {
         printf("\nMessage queue is empty!\n\n");
@@ -92,7 +96,6 @@ struct mess pop()
     }
     messQueue->poped++;
     messQueue->count--;
-    msg.type = 'c';
     return msg;
 }
 
