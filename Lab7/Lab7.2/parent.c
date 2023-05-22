@@ -1,79 +1,56 @@
 #include "parent.h"
 
-struct record rec = {0, 0, 0, 0};
+struct record
+{
+    int number;
+    char name[40];
+    int year;
+    int semester;
+} rec;
 
-FILE *file;
+int size = sizeof(rec);
+
+int fd = 0;
 
 void rec_init();
-void rec_fputs();
 void cat();
 void show_record(int);
 void modify_record(int);
 
 int main()
 {
+    if ((fd = open("file.txt", O_RDWR)) == -1)
+    {
+        ERROR_HANDLER("open", nameof(main));
+        return -1;
+    }
     rec.number = 0;
     int choice = 1;
     while (1)
     {
-        printf("  [1] :             push the record into the file;\n");
-        printf("  [2] :             show the records from the file;\n");
-        printf("  [3x]:             show the record Nx;\n");
-        printf("  [4x]:             modify the record Nx;\n");
-        printf("  [5] :             clean the file;\n");
+        printf("  [1] :             show the records from the file;\n");
+        printf("  [2x]:             show the record Nx;\n");
+        printf("  [3x]:             modify the record Nx;\n");
         printf("If you want to quit the program, choose another variant.\n");
         printf("Your choice:        ");
         rewind(stdin);
         scanf("%d", &choice);
         if (choice == 1)
         {
-            if ((file = fopen("file.txt", "r")) == NULL)
-            {
-                printf("File wasn't open\n");
-                return 0;
-            }
-            rewind(file);
-            char symbol = 0;
-            while ((symbol = getc(file)) != EOF)
-            {
-                if (symbol == 'N' && (symbol = getc(file)) > 48 && symbol < 58)
-                {
-                    rec.number = symbol - 48;
-                }
-            }
-            fclose(file);
-            rec.number++;
-            printf("\nPush the record N%d into the file\n\n", rec.number);
-            rec_init();
-            rec_fputs();
-        }
-        else if (choice == 2)
-        {
             printf("\nShow the records from the file\n\n");
             cat();
         }
-        else if (choice >= 31 && choice < 40)
+        else if (choice >= 20 && choice < 30)
         {
-            int number = choice - 30;
+            int number = choice - 20;
             printf("\nShow the record N%d\n\n", number);
             show_record(number);
         }
-        else if (choice >= 41 && choice < 50)
+        else if (choice >= 30 && choice < 40)
         {
-            int number = choice - 40;
+            int number = choice - 30;
             printf("\nModify the record N%d\n\n", number);
             modify_record(number);
-        }
-        else if (choice == 5)
-        {
-            printf("\nClean the file\n\n");
-            if ((file = fopen("file.txt", "w")) == NULL)
-            {
-                printf("File wasn't open\n");
-                return 0;
-            }
-            fclose(file);
-            rec.number = 1;
         }
         else if (choice == 0)
         {
@@ -82,6 +59,7 @@ int main()
         }
         choice = 0;
     }
+    close(fd);
     exit(0);
 }
 
@@ -126,206 +104,112 @@ void rec_init()
     }
 }
 
-void rec_fputs()
-{
-    if ((file = fopen("file.txt", "a")) == NULL)
-    {
-        printf("File wasn't open\n");
-        return;
-    }
-    fpos_t pos;
-    fgetpos(file, &pos);
-    struct flock fLock;
-    fLock.l_type = F_WRLCK;
-    fLock.l_whence = SEEK_CUR;
-    fLock.l_start = 0;
-    fLock.l_len = 0;
-    if (fcntl(fileno(file), F_SETLK, &fLock) == -1)
-    {
-        ERROR_HANDLER("fcntl", nameof(rec_fputs));
-        return;
-    }
-    fprintf(file, "N%d name:%syear: %d semester: %d\n",
-            rec.number,
-            rec.name,
-            rec.year,
-            rec.semester);
-    fsetpos(file, &pos);
-    fLock.l_type = F_UNLCK;
-    if (fcntl(fileno(file), F_SETLKW, &fLock) == -1)
-    {
-        ERROR_HANDLER("fcntl", nameof(rec_fputs));
-        return;
-    }
-    rec.number++;
-    fclose(file);
-}
-
 void cat()
 {
-    if ((file = fopen("file.txt", "r")) == NULL)
-    {
-        printf("File wasn't open\n");
-        return;
-    }
     struct flock fLock;
     fLock.l_type = F_RDLCK;
     fLock.l_whence = SEEK_SET;
     fLock.l_start = 0;
     fLock.l_len = 0;
-    if (fcntl(fileno(file), F_SETLK, &fLock) == -1)
+    if (fcntl(fd, F_SETLK, &fLock) == -1)
     {
         ERROR_HANDLER("fcntl", nameof(cat));
         return;
     }
-    rewind(file);
-    char symbol = 0;
-    while ((symbol = getc(file)) != EOF)
+    // lseek(fd, 0, SEEK_SET);
+    for (int i = 0; i < 10; i++)
     {
-        printf("%c", symbol);
+        lseek(fd, i * size, SEEK_SET);
+        if (read(fd, &rec, sizeof(rec)) == -1)
+        {
+            ERROR_HANDLER("read", nameof(show_record));
+            return;
+        }
+        printf("N%d name: %s year: %d semester: %d",
+               rec.number,
+               rec.name,
+               rec.year,
+               rec.semester);
+        printf("\n");
     }
     printf("\n");
     fLock.l_type = F_UNLCK;
-    if (fcntl(fileno(file), F_SETLKW, &fLock) == -1)
+    if (fcntl(fd, F_SETLKW, &fLock) == -1)
     {
         ERROR_HANDLER("fcntl", nameof(cat));
         return;
     }
-    fclose(file);
 }
 
 void show_record(int number)
 {
-    if ((file = fopen("file.txt", "r")) == NULL)
-    {
-        printf("File wasn't open\n");
-        return;
-    }
-    rewind(file);
-    char symbol = 0;
-    fpos_t pos;
-    while ((symbol = getc(file)) != EOF)
-    {
-        if (symbol == 'N' && getc(file) == number + 48)
-        {
-            fseek(file, -2, 1);
-            fgetpos(file, &pos);
-            break;
-        }
-    }
+    // lseek(fd, 0, SEEK_SET);
     struct flock fLock;
-    fLock.l_type = F_RDLCK;
-    fLock.l_whence = SEEK_CUR;
-    fLock.l_start = 0;
-    fLock.l_len = 0;
-    if (fcntl(fileno(file), F_SETLK, &fLock) == -1)
+    fLock.l_type = F_WRLCK;
+    fLock.l_whence = SEEK_SET;
+    fLock.l_start = number * size;
+    fLock.l_len = size;
+    if (fcntl(fd, F_GETLK, &fLock) == -1)
     {
         ERROR_HANDLER("fcntl", nameof(show_record));
         return;
     }
-    while ((symbol = getc(file)) != EOF)
+    lseek(fd, number * size, SEEK_SET);
+    while (1)
     {
-        printf("%c", symbol);
-        if (symbol == '\n')
+        if (fLock.l_type == F_UNLCK)
         {
+            if (read(fd, &rec, sizeof(rec)) == -1)
+            {
+                ERROR_HANDLER("read", nameof(show_record));
+                return;
+            }
             break;
         }
     }
-    printf("\n");
-    fsetpos(file, &pos);
+    printf("N%d name: %s year: %d semester: %d",
+           rec.number,
+           rec.name,
+           rec.year,
+           rec.semester);
+    printf("\n\n");
     fLock.l_type = F_UNLCK;
-    if (fcntl(fileno(file), F_SETLKW, &fLock) == -1)
+    if (fcntl(fd, F_SETLKW, &fLock) == -1)
     {
         ERROR_HANDLER("fcntl", nameof(show_record));
         return;
     }
-    fclose(file);
 }
 
 void modify_record(int number)
 {
     show_record(number);
-    if ((file = fopen("file.txt", "r+")) == NULL)
-    {
-        printf("File wasn't open\n");
-        return;
-    }
+    // lseek(fd, 0, SEEK_SET);
     struct flock fLock;
     fLock.l_type = F_WRLCK;
-    fLock.l_whence = SEEK_SET;
-    fLock.l_start = 0;
-    fLock.l_len = 0;
-    if (fcntl(fileno(file), F_SETLK, &fLock) == -1)
+    fLock.l_whence = SEEK_CUR;
+    fLock.l_start = number * size;
+    fLock.l_len = size;
+    if (fcntl(fd, F_SETLK, &fLock) == -1)
     {
         ERROR_HANDLER("fcntl", nameof(modify_record));
         return;
     }
-    char g = 0;
     printf("Enter a modify version of record N%d\n", number);
     rec_init();
     rec.number = number;
-    int size = 0;
-    while (getc(file) != EOF)
-        size++;
-    char *str = NULL;
-    str = (char *)malloc(size * sizeof(char));
-    char symbol = 0;
-    int index = 0;
-    fpos_t pos1, pos2;
-    rewind(file);
-    while ((symbol = getc(file)) != EOF)
+    lseek(fd, number * size, SEEK_SET);
+    if (write(fd, &rec, sizeof(rec)) == -1)
     {
-        if (symbol == 'N' && (g = getc(file)) == number + 48)
-        {
-            str[index] = '_';
-            index++;
-            fseek(file, -2, 1);
-            fgetpos(file, &pos1);
-            while (getc(file) != '\n')
-                ;
-        }
-        else
-        {
-            fseek(file, -2, 1);
-            while ((symbol = getc(file)) != '\n')
-            {
-                str[index++] = symbol;
-            }
-            str[index++] = symbol;
-            continue;
-        }
-        while ((symbol = getc(file)) != EOF)
-        {
-            str[index++] = symbol;
-        }
-        fclose(file);
-        if ((file = fopen("file.txt", "w")) == NULL)
-        {
-            printf("File wasn't open\n");
-            return;
-        }
-        for (index = 0; str[index] != '_'; index++)
-        {
-            fprintf(file, "%c", str[index]);
-        }
-        fprintf(file, "N%d name:%syear: %d semester: %d\n",
-                rec.number,
-                rec.name,
-                rec.year,
-                rec.semester);
-        for (index++; index < strlen(str); index++)
-        {
-            fprintf(file, "%c", str[index]);
-        }
-        fLock.l_type = F_UNLCK;
-        if (fcntl(fileno(file), F_SETLKW, &fLock) == -1)
-        {
-            ERROR_HANDLER("fcntl", nameof(modify_record));
-            return;
-        }
+        ERROR_HANDLER("write", nameof(main));
+        return;
     }
-    fclose(file);
-    free(str);
+    fLock.l_type = F_UNLCK;
+    if (fcntl(fd, F_SETLKW, &fLock) == -1)
+    {
+        ERROR_HANDLER("fcntl", nameof(modify_record));
+        return;
+    }
 }
 
 // ДОРАБОТАТЬ ATEXIT В 4, 5, 7 ЛАБАХ!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -21,10 +21,3 @@
         fprintf(stderr, "Error environment: %s\n", name); \
     }
 
-extern struct record
-{
-    int number;
-    char name[40];
-    int year;
-    int semester;
-} rec;
