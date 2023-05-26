@@ -42,7 +42,7 @@ int main(int argc, char **argv)
     int size = 1;
     char *fileName = "/home/h4thqewjtch/Libs/Lab6/file.txt";
     // int size = atoi(argv[2]);
-    uint64_t rec_amount = (size * (1 << 16)) / sizeof(struct index_s); // 64kb
+    uint64_t rec_amount = (size * (1 << 12)) / sizeof(struct index_s); // 64kb
     rec = (struct index_s *)malloc(rec_amount * sizeof(struct index_s));
     // if ((file = fopen(argv[1], "wb")) == NULL)
     if ((file = fopen(fileName, "wb")) == NULL)
@@ -100,13 +100,9 @@ int main(int argc, char **argv)
 //     header->idx[i].recno = i;
 //     header->idx[i].time_mark = get_day() + get_day_time();
 // }
-
 // int fd = open(argv[1], O_RDWR | O_CREAT | O_TRUNC, 0777);
-
 // write(fd, header, header_size);
 // printf("header size %d\n", header_size);
-
 // close(fd);
-
 // return 0;
 // }

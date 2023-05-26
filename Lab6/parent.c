@@ -293,7 +293,7 @@ int main(int argc, char *argv[])
             snprintf(bSize, 16, "%d", blockSize);
             char index[16];
             snprintf(index, 16, "%d", i);
-            char *args[] = {bSize, index, (char *)0};
+            char *args[] = {bSize, index, (char*)data, (char *)0};
             if (pthread_create(&pthread[i], NULL, (void *)pthreads, (void **)args) != 0)
             {
                 ERROR_HANDLER("pthread_create", nameof(main))
