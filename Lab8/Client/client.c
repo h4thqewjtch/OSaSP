@@ -30,11 +30,11 @@ int main(int argc, char *argv[])
     char curDir[1024];
     memset(curDir, 0, 1024);
     bool slash = 0;
-    // if (argc != 2)
-    // {
-    //     printf("\n Usage: %s <ip of server> \n", argv[0]);
-    //     return 1;
-    // }
+    if (argc != 2)
+    {
+        printf("\n Usage: %s <ip of server> \n", argv[0]);
+        return 1;
+    }
 
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
     memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(8080);
-    if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0)
+    if (inet_pton(AF_INET, argv[1], &serv_addr.sin_addr) <= 0)
     {
         ERROR_HANDLER("inet_pton", nameof(client));
         close(sockfd);
@@ -78,7 +78,6 @@ int main(int argc, char *argv[])
             //printf("%d\n", len);
             if (response[len - 1] == '\n')
             {
-
                 break;
             }
             else if (nread == 0)

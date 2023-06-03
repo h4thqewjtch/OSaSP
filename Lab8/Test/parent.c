@@ -22,11 +22,14 @@
         fprintf(stderr, "Error environment: %s\n", name); \
     }
 
-char rec[1024];
-
 int fd = 0;
 
 FILE *file;
+
+struct request_f
+{
+    char str[8192];
+} rec;
 
 int main(int argc, char **argv)
 {
@@ -45,13 +48,16 @@ int main(int argc, char **argv)
         return -1;
     }
     lseek(fd, 0, SEEK_SET);
-    strcpy(rec, "ECHO hello world\n");
-    if (write(fd, rec, sizeof(rec)) == -1)
+    strcpy(rec.str, "ECHO hello world\n");
+    for (int i = 0; i < 2; i++)
     {
-        ERROR_HANDLER("write", nameof(main));
-        return -1;
+        if (write(fd, &rec, sizeof(struct request_f)) == -1)
+        {
+            ERROR_HANDLER("write", nameof(main));
+            return -1;
+        }
+        strcpy(rec.str, "INFO\n");
     }
-
     char symbol = 0;
     lseek(fd, 0, SEEK_SET);
     char r[1024];

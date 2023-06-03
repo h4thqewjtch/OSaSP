@@ -35,6 +35,11 @@ char rootDir[1024];
 char data[8192];
 int size = 0;
 
+struct request_f
+{
+    char str[8192];
+} rec;
+
 void dirWalk(char *dirName)
 {
     DIR *d;
@@ -112,11 +117,12 @@ void client_thread(void *fd)
 {
 
     int connfd = *(int *)fd, nread = 0, len = 0;
-    
+
     char dir[1024];
     strcpy(dir, rootDir);
-    char str[8192];
-    
+
+    int count = 0;
+
     while (1)
     {
         memset(data, 0, strlen(data));
@@ -148,12 +154,19 @@ void client_thread(void *fd)
 
         if (!strncmp(data, "@", 1))
         {
+            char filePath[8192];
+            memset(filePath, 0, 8192);
+            strcat(filePath, dir);
+            strcat(filePath, "/");
             char fileName[1024];
+            memset(fileName, 0, 1024);
             for (int i = 0; i < strlen(data) - 2; i++)
             {
                 fileName[i] = data[i + 1];
             }
-            if ((fd = open(fileName, O_RDWR)) == -1)
+            strcat(filePath, fileName);
+            // printf("Path : %s", filePath);
+            if ((fd = open(filePath, O_RDWR)) == -1)
             {
                 ERROR_HANDLER("open", nameof(main));
                 if (send(connfd, "No such file or directory\n", strlen("No such file or directory\n"), 0) == -1)
@@ -161,7 +174,7 @@ void client_thread(void *fd)
                     ERROR_HANDLER("send", nameof(server));
                     close(connfd);
                 }
-                return;
+                continue;
             }
             struct flock fLock;
             fLock.l_type = F_RDLCK;
@@ -173,12 +186,31 @@ void client_thread(void *fd)
                 ERROR_HANDLER("fcntl", nameof(server));
                 return;
             }
-            lseek(fd, 0, SEEK_SET);
-            if (read(fd, &str, sizeof(str)) == -1)
+            char symbol = 0;
+            lseek(fd, count * sizeof(struct request_f), SEEK_SET);
+            if (!read(fd, &symbol, sizeof(char)))
+            {
+                if (send(connfd, "End of file\n", strlen("End of file\n"), 0) == -1)
+                {
+                    ERROR_HANDLER("send", nameof(server));
+                    close(connfd);
+                }
+                count = 0;
+                continue;
+            }
+            else
+            {
+                lseek(fd, -1, SEEK_CUR);
+            }
+            if (read(fd, &rec, sizeof(struct request_f)) == -1)
             {
                 ERROR_HANDLER("read", nameof(server));
                 return;
             }
+            printf("%s\n", rec.str);
+            count++;
+            printf("count: %d\n", count);
+            strcpy(data, rec.str);
             fLock.l_type = F_UNLCK;
             if (fcntl(fd, F_SETLKW, &fLock) == -1)
             {
@@ -186,7 +218,6 @@ void client_thread(void *fd)
                 return;
             }
             close(fd);
-            strcpy(data, str);
         }
         if (!strncmp(data, "INFO", 4))
         {
@@ -228,7 +259,7 @@ void client_thread(void *fd)
             //  size++;
             //  data[size] = ';';
             //  size++;
-            printf("%s", dir);
+            // printf("%s", dir);
             dirWalk(dir);
             len = strlen(data);
             data[len - 1] = '\n';
@@ -272,7 +303,6 @@ void client_thread(void *fd)
                             return;
                         }
                         continue;
-                        
                     }
                     closedir(d);
 
@@ -373,7 +403,6 @@ void client_thread(void *fd)
             }
             clientCount--;
             break;
-            
         }
         else
         {
@@ -428,7 +457,7 @@ int main(int argc, char *argv[])
         return -1;
     }
     pthread_t clients[MAX_CLIENTS];
-    strcpy(rootDir, "/home/h4thqewjtch/Libs");
+    strcpy(rootDir, argv[1]);
     while (1)
     {
         if ((connfd = accept(listenfd, (struct sockaddr *)NULL, NULL)) == -1)
