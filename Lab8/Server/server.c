@@ -72,6 +72,7 @@ void dirWalk(char *dirName)
         if (dirent->d_type == 10) // symLink
         {
             char buffer[256];
+            memset(buffer, 0, 256);
             readlink(dirent->d_name, buffer, 256);
             snprintf(name, sizeof(name), "%s-->%s", dirent->d_name, buffer);
             if (size + strlen(name) >= 8192)
@@ -429,8 +430,6 @@ int main(int argc, char *argv[])
     int listenfd = 0, connfd = 0, clientSocket[MAX_CLIENTS];
     struct sockaddr_in serv_addr;
 
-    char INFO[] = {"Welcome to study server\n"};
-
     if ((listenfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     {
         ERROR_HANDLER("socket", nameof(server));
@@ -477,8 +476,10 @@ int main(int argc, char *argv[])
         }
         else
         {
-            int len = strlen(INFO);
-            if (send(connfd, INFO, len, 0) == -1)
+            char welcome[8192];
+            snprintf(welcome, 8192, "%s\n", argv[1]);
+            int len = strlen(welcome);
+            if (send(connfd, welcome, len, 0) == -1)
             {
                 ERROR_HANDLER("send", nameof(server));
                 close(connfd);

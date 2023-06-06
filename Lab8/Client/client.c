@@ -22,12 +22,13 @@
 int main(int argc, char *argv[])
 {
     int sockfd = 0, nread = 0, len = 0;
+    char filePath[8192];
     char symbol = 0;
     struct sockaddr_in serv_addr;
 
     char data[8192];
     char response[8192];
-    char curDir[1024];
+    char curDir[8192];
     memset(curDir, 0, 1024);
     bool slash = 0;
     if (argc != 2)
@@ -59,11 +60,6 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-
-//////////////////////////////////////////////////////////////////////////////ДОРАБОТАТЬ ВЫВОД КОМАНД ИЗ ФАЙЛА//ДОБАВИТЬ КОМАНДНУЮ СТРОКУ////////////////////////////////////////////////////////////////////////
-
-
-
     while (1)
     {
         while (nread = recv(sockfd, response, 8192, 0))
@@ -75,7 +71,7 @@ int main(int argc, char *argv[])
                 return -1;
             }
             len = strlen(response);
-            //printf("%d\n", len);
+            // printf("%d\n", len);
             if (response[len - 1] == '\n')
             {
                 break;
@@ -101,9 +97,10 @@ int main(int argc, char *argv[])
                 }
             }
             slash = 0;
-            if (!strcmp(curDir, "/home/h4thqewjtch/Libs/"))
+            len = strlen(curDir);
+            if (!strncmp(curDir, filePath, len - 1))
             {
-                memset(curDir, 0, 1024);
+                memset(curDir, 0, 8192);
             }
         }
         else if (!strncmp(data, "LIST", 4))
@@ -121,6 +118,11 @@ int main(int argc, char *argv[])
         else
         {
             response[len - 1] = '\n';
+            if (!strncmp(response, "/", 1))
+            {
+                len = strlen(response);
+                strncpy(filePath, response, len - 1);
+            }
             printf("%s", response);
             if (!strncmp(response, "BYE", 3) || !strncmp(response, "Too", 3))
             {
@@ -135,7 +137,7 @@ int main(int argc, char *argv[])
         rewind(stdin);
         fgets(data, 8192, stdin);
         len = strlen(data);
-        //printf("%d\n", len);
+        // printf("%d\n", len);
         data[len - 1] = '\n';
         if (send(sockfd, data, len, 0) == -1)
         {
